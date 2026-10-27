@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { z } from 'zod';
+import { isValidTimeZone } from './time.js';
 
 const bool = z
   .string()
@@ -27,6 +28,11 @@ const schema = z.object({
   // Looks up a street address for each stop through OpenStreetMap Nominatim. Off by default because it sends
   // the coordinates of stops to that public service.
   REVERSE_GEOCODE: bool.default(false),
+  // Time zone for times written into CSV exports. Everything is stored in UTC; this only changes how exports read.
+  REPORT_TIMEZONE: z
+    .string()
+    .default('Asia/Kolkata')
+    .refine(isValidTimeZone, 'REPORT_TIMEZONE must be an IANA time zone name such as Asia/Kolkata or UTC'),
   // Where uploaded APK files are stored (relative paths are resolved from the backend folder). Back this folder up / mount it as a volume in production.
   UPLOADS_DIR: z.string().default('./uploads'),
   MAX_APK_MB: z.coerce.number().default(300),

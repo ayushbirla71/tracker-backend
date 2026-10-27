@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { config } from '../config.js';
 import { pool } from '../db.js';
 import { parseRange } from '../range.js';
+import { formatInZone, zoneLabel } from '../time.js';
 import { requireAdmin } from './auth.js';
 
 export interface WorkerSummary {
@@ -52,9 +53,12 @@ export async function summarize(from: Date, to: Date, workerId: number | null = 
   return rows;
 }
 
+// Times in exports are written in REPORT_TIMEZONE (IST by default) and the column headers say so; the database stays in UTC.
+const TZ = zoneLabel(config.REPORT_TIMEZONE);
+
 const csvCell = (v: unknown) => {
   if (v == null) return '';
-  const s = v instanceof Date ? v.toISOString() : String(v);
+  const s = v instanceof Date ? formatInZone(v, config.REPORT_TIMEZONE) : String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 const toCsv = (header: string[], rows: unknown[][]) => [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
@@ -73,7 +77,7 @@ export async function reportRoutes(app: FastifyInstance) {
     if ('error' in range) return reply.code(400).send(range);
     const rows = await summarize(range.from, range.to);
     const csv = toCsv(
-      ['worker', 'distance_km', 'stays', 'stay_minutes', 'points', 'first_seen', 'last_seen'],
+      ['worker', 'distance_km', 'stays', 'stay_minutes', 'points', `first_seen (${TZ})`, `last_seen (${TZ})`],
       rows.map((r) => [r.name, (r.distance_m / 1000).toFixed(2), r.stays, Math.round(r.stay_seconds / 60), r.points, r.first_seen, r.last_seen]),
     );
     return reply.header('content-type', 'text/csv; charset=utf-8').header('content-disposition', 'attachment; filename="summary.csv"').send(csv);
@@ -92,7 +96,7 @@ export async function reportRoutes(app: FastifyInstance) {
       [range.from, range.to, workerId ? Number(workerId) : null, config.STAY_MIN_SECONDS],
     );
     const csv = toCsv(
-      ['worker', 'arrived', 'left', 'duration_minutes', 'lat', 'lng', 'address'],
+      ['worker', `arrived (${TZ})`, `left (${TZ})`, 'duration_minutes', 'lat', 'lng', 'address'],
       rows.map((r) => [r.name, r.start_at, r.end_at, Math.round(r.duration_s / 60), r.lat, r.lng, r.address]),
     );
     return reply.header('content-type', 'text/csv; charset=utf-8').header('content-disposition', 'attachment; filename="stays.csv"').send(csv);
