@@ -10,7 +10,9 @@
     "migrate": "tsx src/migrate.ts",
     "simulate": "tsx scripts/simulate.ts",
     "system-admin": "tsx scripts/system-admin.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "compile": "tsc -p tsconfig.build.json",
+    "start:prod": "node dist/src/index.js"
   },
   "type": "module",
   "dependencies": {

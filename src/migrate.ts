@@ -1,9 +1,12 @@
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pool } from './db.js';
 
-const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
+// src/ when run with tsx, dist/src/ when compiled: look one and two levels up for the migrations folder
+const here = path.dirname(fileURLToPath(import.meta.url));
+const dir = [path.join(here, '..', 'migrations'), path.join(here, '..', '..', 'migrations')].find((d) => existsSync(d)) ?? path.join(here, '..', 'migrations');
 
 export async function migrate(log: (msg: string) => void = console.log) {
   await pool.query(

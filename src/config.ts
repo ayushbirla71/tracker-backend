@@ -8,6 +8,9 @@ const bool = z
 
 const schema = z.object({
   PORT: z.coerce.number().default(3000),
+  // Set to true only when the API sits behind a reverse proxy that is the sole way in (Caddy / nginx): the real client IP
+  // is then read from X-Forwarded-For, so per-IP rate limits (e.g. login attempts) apply to each client, not to the proxy.
+  TRUST_PROXY: bool.default(false),
   DATABASE_URL: z.string().default('postgres://tracker:tracker@localhost:15432/tracker'),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   APP_KEY: z.string().min(8, 'APP_KEY must be at least 8 characters'),
@@ -40,4 +43,16 @@ if (!parsed.success) {
 }
 
 export const config = parsed.data;
+
+// In production refuse to start with the example / development secrets from .env.example
+if (process.env.NODE_ENV === 'production') {
+  const weak: string[] = [];
+  if (/^(change-me|dev-)/i.test(config.JWT_SECRET)) weak.push('JWT_SECRET');
+  if (/^(change-me|dev-)/i.test(config.APP_KEY)) weak.push('APP_KEY');
+  if (config.ADMIN_PASSWORD === 'ChangeMe123!') weak.push('ADMIN_PASSWORD');
+  if (weak.length > 0) {
+    console.error(`Refusing to start in production with default values for: ${weak.join(', ')}. Set strong random values in your .env.`);
+    process.exit(1);
+  }
+}
 export type Config = typeof config;

@@ -15,7 +15,17 @@ import { deviceRoutes } from './routes/device.js';
 import { reportRoutes } from './routes/reports.js';
 
 export async function buildServer() {
-  const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, bodyLimit: 2 * 1024 * 1024 });
+  const app = Fastify({
+    logger: { level: process.env.LOG_LEVEL ?? 'info' },
+    bodyLimit: 2 * 1024 * 1024,
+    trustProxy: config.TRUST_PROXY,
+    // The website and the app call <address>/api/...; some proxies / tunnels forward that path untouched. Accept it, so the API
+    // works both when the proxy removes the /api prefix (our Caddy) and when it does not (nginx without a trailing slash, ngrok, ...).
+    rewriteUrl: (req) => {
+      const url = req.url ?? '/';
+      return url === '/api' || url.startsWith('/api/') || url.startsWith('/api?') ? url.slice(4) || '/' : url;
+    },
+  });
 
   await app.register(cors, {
     origin: config.CORS_ORIGIN === '*' ? true : config.CORS_ORIGIN.split(',').map((o) => o.trim()),
